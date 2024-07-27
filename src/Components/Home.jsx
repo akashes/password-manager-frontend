@@ -4,17 +4,20 @@ import axios from "axios";
 import openeye from "../images/visible.png";
 import closedeye from "../images/eye.png";
 import { serverUrl  } from "../utils/serverUrl";
-import { showSuccessAlert } from "../utils/toastify";
+import { showFailedAlert, showSuccessAlert } from "../utils/toastify";
 const Home = () => {
+ 
   const [allPasswordData, setAllPasswordData] = useState(null);
   const [passwordData, setPasswordData] = useState({
     website: "",
     password: "",
     username: "",
+    id:""
   });
   const [passwordArray, setPasswordArray] = useState([])
   const [loadUpdatedData, setLoadUpdatedData] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const[editState,setEditState]=useState(false)
 
   const setData = (e) => {
     console.log(e.target.name);
@@ -24,40 +27,77 @@ const Home = () => {
   };
 
   const savePasswordData = async (e) => {
-    console.log(passwordData);
+    const{website,password,username}=passwordData
+    if(website.length<3 || username.length<3 || password.length<3){
+      showFailedAlert('Password not saved!')
+    }else{
+      if(editState){
+        console.log('inside edit')
+        axios.put(`${serverUrl}/edit-password`,passwordData).then((result)=>{
+          console.log(result)
+          console.log('edit successfull')
+        }).catch((err)=>{
+          console.log(err)
+        })
+        setLoadUpdatedData(prev=>!prev)
+        setEditState(prev=>!prev)
+  
+  
+      }else{
+        e.preventDefault();
+        let result = await axios.post(
+          `${serverUrl}/add-password`,
+          passwordData
+        );
+    
+        setPasswordData({
+          website: "",
+          password: "",
+          username: "",
+        });
+        setLoadUpdatedData((prev) => !prev);
+  
+      }
+     
+
+
+
+    }
     
 
-    // setPasswordArray(prevArray => {
-    //   const updatedArray = [...prevArray, passwordData];
-    //   localStorage.setItem('passwords', JSON.stringify(updatedArray));
-    //   return updatedArray;
-    // });
    
-    e.preventDefault();
-    let result = await axios.post(
-      "http://localhost:4000/add-password",
-      passwordData
-    );
 
-    setPasswordData({
-      website: "",
-      password: "",
-      username: "",
-    });
-    setLoadUpdatedData((prev) => !prev);
+   
   };
 
   const handleDeleteAllPassword = async () => {
     localStorage.removeItem('passwords')
     setPasswordArray([])
     
-    await axios.delete(`http://localhost:4000/delete-all-password`);
+    await axios.delete(`${serverUrl}/delete-all-password`);
     setLoadUpdatedData((prev) => !prev);
   };
 
+  const handleDeleteOneData=async(id)=>{
+    console.log(id)
+    
+    axios.delete(`${serverUrl}/delete-one-password/${id}`).then((result)=>{
+      console.log(result.data)
+      setLoadUpdatedData(prev=>!prev)
+    }).catch((err)=>{
+      console.log(err)
+    })
+  }
+  const handleEditPassword=async(data)=>{
+    let {website,password,username,_id}=data
+    setPasswordData({website,password,username,id:_id})
+    setEditState(true)
+   
+
+  }
   useEffect(() => {
     const getAllPasswordData = async () => {
-      const result = await axios.get("http://localhost:4000/get-all-password");
+      const result = await axios.get(`${serverUrl}/get-all-password`);
       console.log(result);
       setAllPasswordData(result.data);
     };
@@ -65,18 +105,10 @@ const Home = () => {
     getAllPasswordData();
   }, [loadUpdatedData]);
 
-  useEffect(()=>{
-    let passwords=localStorage.getItem('passwords')
-    if(passwords){
-      setPasswordArray(JSON.parse(passwords))
-    }else{
 
-    }
-
-  },[])
 
   return (
-    <main>
+    <main className="container">
     <header>
     <h1 className="font-bold text-4xl text-center mt-8">
         <span className="title-decoration">&lt;</span>Pass
@@ -87,7 +119,7 @@ const Home = () => {
       </p>
     </header>
 
-      <div className="input-container px-8 max-w-4xl  m-auto">
+      <form className=" flex flex-col  gap-4 input-container px-8 max-w-4xl  m-auto">
         <input
           name="website"
           onChange={(e) => setData(e)}
@@ -96,28 +128,28 @@ const Home = () => {
           placeholder="Enter website url"
           value={passwordData?.website || ""}
         />
-        <div className="flex w-full ">
+        <div className="   flex w-full  gap-4  ">
           <input
             name="username"
             onChange={(e) => setData(e)}
-            className="border flex-1"
+            className="border w-1/2"
             type="text"
             placeholder="Enter username"
             value={passwordData?.username || ""}
           />
-          <div className="relative">
+          <div className="relative w-1/2 ">
             <input
               type={showPassword ? "text" : "password"}
               id="password"
               name="password"
               onChange={(e) => setData(e)}
-              className="border flex-4"
+              className="border "
               placeholder="Enter password"
               value={passwordData?.password || ""}
             />
             <span
               onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-4 top-[22px]"
+              className="absolute md:right-14 top-[13px]"
             >
               <img
                 className="cursor-pointer"
@@ -131,26 +163,22 @@ const Home = () => {
         </div>
         <div className="button-container text-center">
           <button
-            className="button flex justify-center items-center mx-auto border-green-500 border-2 px-2 py-1 rounded-2xl"
+            className="button flex justify-center items-center mx-auto border-green-500 border-2 px-2 py-1 rounded-2xl gap-2 bg-green-500 text-white shadow-lg"
              onClick={savePasswordData} 
           >
-            <lord-icon
-              src="https://cdn.lordicon.com/zrkkrrpl.json"
-              trigger="hover"
-              style={{ width: "40px", height: "40px" }}
-            ></lord-icon>
+            <i className="fa-regular fa-floppy-disk"></i>
             Save
           </button>
         </div>
-      </div>
+      </form>
 
 {
   allPasswordData?.length==0 && <p>No passwords saved</p>
 }{
   allPasswordData?.length>0 &&  <div className="table-container max-w-4xl m-auto">
-  <h3>YOUR PASSWORDS</h3>
+  <h3 className="text-sm text-slate-600 tracking-wider ">YOUR PASSWORDS</h3>
   <table className="table-auto w-full border-8 border-collapse    ">
-    <thead>
+    <thead className="text-center ">
       <tr className="border bg-green-950 text-white text-sm ">
         <th>Site</th>
         <th>Username</th>
@@ -177,13 +205,12 @@ const Home = () => {
           // console.log(time);
           // console.log(time);
           return (
-            <tr>
-              <td className="flex justify-between p-1 items-center">
-                <a href={data.website} target='_blank'>
+            <tr className="border border-2 border-black">
+              <td className="flex justify-between p-1 items-center ">
+                <a style={{textDecoration:'none',color:'black'}} href={data.website} target='_blank'>
                   
                 {data?.website}
                 </a>
-                <div className="tooltip">
                 <i  onClick={()=>{
                   navigator.clipboard.writeText(data?.website).then(()=>{
                     showSuccessAlert('Website url copied to clipboard')
@@ -191,14 +218,24 @@ const Home = () => {
                     console.log('Failed to copy text',err)
                   })
                 }} class="fa-solid fa-copy">
-                <span className="tooltip-text">
-                copy link</span>
+              
                 </i>
-                </div>
                 </td>
               <td className="text-center">{data?.username}</td>
-              <td className="text-center">{data?.password}</td>
+              <td className="flex justify-between items-center">
+                {"*".repeat(data?.password.length)}
+                <i  onClick={()=>{
+                  navigator.clipboard.writeText(data?.password).then(()=>{
+                    showSuccessAlert('Website url copied to clipboard')
+                  }).catch((err)=>{
+                    console.log('Failed to copy text',err)
+                  })
+                }} class="fa-solid fa-copy">
+                
+                </i>
+                </td>
               <td className="text-center">
+
                 <span className="font-semibold mr-2 text-gray-600">
                   {formattedDate}
                 </span>{" "}
@@ -206,9 +243,11 @@ const Home = () => {
                   {formattedTime}
                 </span>
               </td>
-              <td className="text-center">
-                <span class="actions">Edit</span> |{" "}
-                <span class="actions">Delete</span>
+              <td className="flex justify-around items-center">
+              <i onClick={()=>handleEditPassword(data)} className="fa-solid fa-edit"></i>
+           
+      
+                <i onClick={()=>handleDeleteOneData(data._id)} className="fa-solid fa-trash"></i>
               </td>
             </tr>
           );
@@ -223,12 +262,12 @@ const Home = () => {
      
       <div className="text-center my-12">
         <button
-          className="border-3 p-4 bg-green-700 text-white rounded-lg "
+          className="border-3 px-4 py-3  bg-green-700 text-white rounded-3xl "
           onClick={handleDeleteAllPassword}
         >
-          Delete
+          Delete All Data
         </button>
-      </div>
+      </div> 
     </main>
   );
 };
